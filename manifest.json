@@ -1,0 +1,11 @@
+{
+	"id": "teletype-obsidian-plugin",
+	"name": "Teletype Obsidian Plugin",
+	"version": "1.0.0",
+	"minAppVersion": "0.15.0",
+	"description": "Post notes from obsidian to teletype.in",
+	"author": "Obsidian",
+	"authorUrl": "https://github.com/kantegory",
+	"fundingUrl": "",
+	"isDesktopOnly": true
+}
