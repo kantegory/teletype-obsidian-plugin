@@ -9,15 +9,17 @@ interface TeletypeObsidianPluginSettings {
 	telegramApiId: string;
 	telegramApiHash: string;
 	telegramStringSession: string;
+	vaultPath: string;
 }
 
 const DEFAULT_SETTINGS: TeletypeObsidianPluginSettings = {
 	telegramApiId: '',
 	telegramApiHash: '',
-	telegramStringSession: ''
+	telegramStringSession: '',
+	vaultPath: ''
 }
 
-const prepareHtml = (root: HTMLElement) => {
+const prepareHtml = (root: HTMLElement, mediaRoot: string) => {
 	const REMOVEABLE_ELEMENTS = ["BUTTON"];
 	
 	for (const removeableElement of REMOVEABLE_ELEMENTS) {
@@ -60,6 +62,14 @@ const prepareHtml = (root: HTMLElement) => {
 				preparedChild = `<pre>${codeBlock.outerHTML}</pre>`;
 			}
 			
+		}
+
+		const img = child.querySelector('[src]');
+
+		if (img) {
+			preparedHtml.push({ type: 'media', path: `${mediaRoot}/${img.textContent}` })
+
+			continue;
 		}
 
 		preparedHtml.push(preparedChild);
@@ -113,10 +123,12 @@ export default class TeletypeObsidianPlugin extends Plugin {
 
 					await MarkdownRenderer.renderMarkdown(view.data, wrapper, path.dirname(`${view.file?.basename}.${view.file?.extension}`), view)
 
+					// @ts-ignore
+					const attachmentFolderPath = `${this.settings.vaultPath}/${view.app.vault.getConfig("attachmentFolderPath") || ''}`;
+
 					tgClient.sendMessageToTeletypeBot(
 						view.file?.basename,
-						// parseData(wrapper.children)
-						prepareHtml(wrapper)
+						prepareHtml(wrapper, attachmentFolderPath)
 					)
 
 					document.body.removeChild(wrapper);
@@ -240,6 +252,17 @@ class SampleSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.telegramStringSession)
 				.onChange(async (value) => {
 					this.plugin.settings.telegramStringSession = value;
+					await this.plugin.saveSettings();
+				}));
+		
+		new Setting(containerEl)
+			.setName('Absolute path to your vault')
+			.setDesc('This setting necessary just for media files extraction from your note')
+			.addText(text => text
+				.setPlaceholder('Absolute path to your vault')
+				.setValue(this.plugin.settings.vaultPath)
+				.onChange(async (value) => {
+					this.plugin.settings.vaultPath = value;
 					await this.plugin.saveSettings();
 				}));
 	}

@@ -47116,7 +47116,9 @@ var TelegramPluginClient = class {
         await client.sendMessage("TeletypeAppBot", { message: "/new_post" });
         await client.sendMessage("TeletypeAppBot", { message: title });
         for (const chunk of notice) {
-          if (chunk && chunk.length) {
+          if (chunk && typeof chunk === "object" && chunk.type === "media") {
+            await client.sendMessage("TeletypeAppBot", { file: chunk.path });
+          } else if (chunk && chunk.length) {
             await client.sendMessage("TeletypeAppBot", { message: chunk, parseMode: "html" });
           }
         }
@@ -47137,9 +47139,10 @@ var path = __toESM(require("path"));
 var DEFAULT_SETTINGS = {
   telegramApiId: "",
   telegramApiHash: "",
-  telegramStringSession: ""
+  telegramStringSession: "",
+  vaultPath: ""
 };
-var prepareHtml = (root) => {
+var prepareHtml = (root, mediaRoot) => {
   const REMOVEABLE_ELEMENTS = ["BUTTON"];
   for (const removeableElement of REMOVEABLE_ELEMENTS) {
     Array.from(root.querySelectorAll(removeableElement)).forEach((element) => element.remove());
@@ -47162,7 +47165,6 @@ var prepareHtml = (root) => {
     "IMG",
     "CODE"
   ];
-  const REMOVEABLE_CLASSES = ["is-loaded"];
   const preparedHtml = [];
   for (const child of children) {
     if (!ALLOWED_ELEMENTS.includes(child.tagName)) {
@@ -47174,12 +47176,13 @@ var prepareHtml = (root) => {
       const codeBlock = child.querySelector("code");
       if (codeBlock) {
         codeBlock.classList.remove("is-loaded");
-        alert(codeBlock.outerHTML);
         preparedChild = `<pre>${codeBlock.outerHTML}</pre>`;
       }
     }
-    if (child.tagName === "CODE") {
-      preparedChild = `${child.innerHTML}<br/><br/><em>\u0425\u0443\u0438\u0441\u0442\u0438\u043D\u0433 \u043A\u043E\u0434\u0430</em>`;
+    const img = child.querySelector("[src]");
+    if (img) {
+      preparedHtml.push({ type: "media", path: `${mediaRoot}/${img.textContent}` });
+      continue;
     }
     preparedHtml.push(preparedChild);
   }
@@ -47216,10 +47219,10 @@ var TeletypeObsidianPlugin = class extends import_obsidian.Plugin {
           wrapper.style.display = "hidden";
           document.body.appendChild(wrapper);
           await import_obsidian.MarkdownRenderer.renderMarkdown(view.data, wrapper, path.dirname(`${(_a = view.file) == null ? void 0 : _a.basename}.${(_b = view.file) == null ? void 0 : _b.extension}`), view);
+          const attachmentFolderPath = `${this.settings.vaultPath}/${view.app.vault.getConfig("attachmentFolderPath") || ""}`;
           tgClient.sendMessageToTeletypeBot(
             (_c = view.file) == null ? void 0 : _c.basename,
-            // parseData(wrapper.children)
-            prepareHtml(wrapper)
+            prepareHtml(wrapper, attachmentFolderPath)
           );
           document.body.removeChild(wrapper);
         } catch (error) {
@@ -47294,6 +47297,10 @@ var SampleSettingTab = class extends import_obsidian.PluginSettingTab {
     }));
     new import_obsidian.Setting(containerEl).setName("Telegram string session").setDesc("Paste your telegram string session").addText((text) => text.setPlaceholder("Telegram string session").setValue(this.plugin.settings.telegramStringSession).onChange(async (value) => {
       this.plugin.settings.telegramStringSession = value;
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian.Setting(containerEl).setName("Absolute path to your vault").setDesc("This setting necessary just for media files extraction from your note").addText((text) => text.setPlaceholder("Absolute path to your vault").setValue(this.plugin.settings.vaultPath).onChange(async (value) => {
+      this.plugin.settings.vaultPath = value;
       await this.plugin.saveSettings();
     }));
   }

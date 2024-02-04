@@ -41,7 +41,9 @@ class TelegramPluginClient {
       await client.sendMessage("TeletypeAppBot", { message: title });
 
       for (const chunk of notice) {
-        if (chunk && chunk.length) {
+        if (chunk && typeof chunk === 'object' && chunk.type === 'media') {
+          await client.sendMessage("TeletypeAppBot", { file: chunk.path });
+        } else if (chunk && chunk.length) {
           await client.sendMessage("TeletypeAppBot", { message: chunk, parseMode: 'html' });
         }
       }
