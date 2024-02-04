@@ -1,7 +1,5 @@
 import { TelegramClient } from "telegram";
 import { StringSession } from "telegram/sessions/index.js";
-// @ts-ignore
-import input from "input";
 
 class TelegramPluginClient {
   constructor(apiId, apiHash, stringSession = "") {
