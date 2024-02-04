@@ -47094,42 +47094,39 @@ var import_sessions = __toESM(require_sessions(), 1);
 var import_input = __toESM(require_lib8(), 1);
 var TelegramPluginClient = class {
   constructor(apiId, apiHash, stringSession = "") {
-    __publicField(this, "getStringSession", async () => {
-      const client = new import_telegram.TelegramClient(this.stringSession, this.apiId, this.apiHash, {
-        connectionRetries: 5
-      });
-      await client.start({
-        phoneNumber: async () => await import_input.default.text("Please enter your number: "),
-        password: async () => await import_input.default.text("Please enter your password: "),
-        phoneCode: async () => await import_input.default.text("Please enter the code you received: "),
-        onError: (err) => console.log(err)
-      });
-      console.log("client.session", client.session.save());
-      return client.session.save();
+    __publicField(this, "getStringSession", async (prompt) => {
+      try {
+        await this.client.start({
+          phoneNumber: async () => await prompt("phone"),
+          phoneCode: async () => await prompt("code"),
+          password: async () => await prompt("password"),
+          onError: (err) => alert(`ERROR WHILE LOGIN: ${err}`)
+        });
+        alert(`client session: ${this.client.session.save()}`);
+        return this.client.session.save();
+      } catch (error) {
+        alert(`error from get string session ${error}`);
+      }
     });
     __publicField(this, "sendMessageToTeletypeBot", async (title, notice) => {
-      const client = new import_telegram.TelegramClient(this.stringSession, this.apiId, this.apiHash, {
-        connectionRetries: 5
-      });
-      try {
-        await client.connect();
-        await client.sendMessage("TeletypeAppBot", { message: "/new_post" });
-        await client.sendMessage("TeletypeAppBot", { message: title });
-        for (const chunk of notice) {
-          if (chunk && typeof chunk === "object" && chunk.type === "media") {
-            await client.sendMessage("TeletypeAppBot", { file: chunk.path });
-          } else if (chunk && chunk.length) {
-            await client.sendMessage("TeletypeAppBot", { message: chunk, parseMode: "html" });
-          }
+      await this.client.connect();
+      await this.client.sendMessage("TeletypeAppBot", { message: "/new_post" });
+      await this.client.sendMessage("TeletypeAppBot", { message: title });
+      for (const chunk of notice) {
+        if (chunk && typeof chunk === "object" && chunk.type === "media") {
+          await this.client.sendMessage("TeletypeAppBot", { file: chunk.path });
+        } else if (chunk && chunk.length) {
+          await this.client.sendMessage("TeletypeAppBot", { message: chunk, parseMode: "html" });
         }
-        await client.sendMessage("TeletypeAppBot", { message: "/finish_post" });
-      } catch (exception) {
-        alert(exception);
       }
+      await this.client.sendMessage("TeletypeAppBot", { message: "/finish_post" });
     });
     this.apiId = apiId;
     this.apiHash = apiHash;
     this.stringSession = new import_sessions.StringSession(stringSession);
+    this.client = new import_telegram.TelegramClient(this.stringSession, this.apiId, this.apiHash, {
+      connectionRetries: 5
+    });
   }
 };
 var client_default = TelegramPluginClient;
@@ -47198,10 +47195,45 @@ var TeletypeObsidianPlugin = class extends import_obsidian.Plugin {
     const statusBarItemEl = this.addStatusBarItem();
     statusBarItemEl.setText("Status Bar Text");
     this.addCommand({
-      id: "open-sample-modal-simple",
-      name: "Open sample modal (simple)",
-      callback: () => {
-        new SampleModal(this.app).open();
+      id: "teletype-obsidian-generate-session",
+      name: "Generate telegram string session",
+      callback: async () => {
+        try {
+          if (this.settings.telegramStringSession) {
+            alert("Session is already setted, remove it and repeat command");
+          }
+          const tgClient = new client_default(
+            Number(this.settings.telegramApiId),
+            this.settings.telegramApiHash,
+            this.settings.telegramStringSession
+          );
+          alert("start chaining...");
+          const prompt = (type) => {
+            alert("prompting...");
+            const modal = new TelegramAuthModal(this.app, type);
+            modal.open();
+            return new Promise(
+              (resolve, reject) => {
+                try {
+                  let value = "";
+                  modal.containerEl.querySelector("form").addEventListener("submit", (event) => {
+                    event.preventDefault();
+                    alert("hheheheh");
+                    value = event.target.querySelector("input").value;
+                    modal.close();
+                    resolve(value);
+                  });
+                } catch (error) {
+                  reject(error);
+                }
+              }
+            );
+          };
+          await tgClient.getStringSession(prompt);
+          alert("finishing....");
+        } catch (error) {
+          alert(`error while try to generate session: ${error}`);
+        }
       }
     });
     this.addCommand({
@@ -47210,8 +47242,11 @@ var TeletypeObsidianPlugin = class extends import_obsidian.Plugin {
       editorCallback: async (editor, view) => {
         var _a, _b, _c;
         try {
+          if (!this.settings.telegramStringSession) {
+            alert("Can't publish anything without session param");
+          }
           const tgClient = new client_default(
-            this.settings.telegramApiId,
+            Number(this.settings.telegramApiId),
             this.settings.telegramApiHash,
             this.settings.telegramStringSession
           );
@@ -47230,24 +47265,10 @@ var TeletypeObsidianPlugin = class extends import_obsidian.Plugin {
         }
       }
     });
-    this.addCommand({
-      id: "open-sample-modal-complex",
-      name: "Open sample modal (complex)",
-      checkCallback: (checking) => {
-        const markdownView = this.app.workspace.getActiveViewOfType(import_obsidian.MarkdownView);
-        if (markdownView) {
-          if (!checking) {
-            new SampleModal(this.app).open();
-          }
-          return true;
-        }
-      }
-    });
     this.addSettingTab(new SampleSettingTab(this.app, this));
     this.registerDomEvent(document, "click", (evt) => {
       console.log("click", evt);
     });
-    this.registerInterval(window.setInterval(() => console.log("setInterval"), 5 * 60 * 1e3));
   }
   onunload() {
   }
@@ -47258,19 +47279,32 @@ var TeletypeObsidianPlugin = class extends import_obsidian.Plugin {
     await this.saveData(this.settings);
   }
 };
-var SampleModal = class extends import_obsidian.Modal {
-  constructor(app) {
+var TelegramAuthModal = class extends import_obsidian.Modal {
+  constructor(app, type) {
     super(app);
+    this.type = type;
   }
   onOpen() {
     const { contentEl } = this;
+    const LABELS_MATCHING = {
+      "phone": "Input your phone number:",
+      "code": "Input your Telegram verification code:",
+      "password": "Input your password:"
+    };
     contentEl.innerHTML = `
-			<form>
+			<form data-id="telegram-session-form">
 				<label>
-					<p>Input your phone number:</p>
+					<p>${LABELS_MATCHING[this.type]}</p>
 
-					<input type="text" />
+					<input name="${this.type}" type="${this.type === "password" ? "password" : "text"}" />
 				</label>
+
+				<br>
+				<br>
+
+				<div>
+					<button type="submit">${this.type === "password" ? "Save session params" : "Next"}</button>
+				</div>
 			</form>
 		`;
   }

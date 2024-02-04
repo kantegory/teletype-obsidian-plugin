@@ -8,51 +8,47 @@ class TelegramPluginClient {
     this.apiId = apiId
     this.apiHash = apiHash
     this.stringSession = new StringSession(stringSession)
-  }
 
-  getStringSession = async () => {
-    const client = new TelegramClient(this.stringSession, this.apiId, this.apiHash, {
+    this.client = new TelegramClient(this.stringSession, this.apiId, this.apiHash, {
       connectionRetries: 5,
     });
+  }
 
-    await client.start({
-      phoneNumber: async () => await input.text("Please enter your number: "),
-      password: async () => await input.text("Please enter your password: "),
-      phoneCode: async () =>
-        await input.text("Please enter the code you received: "),
-      onError: (err) => console.log(err),
-    });
+  getStringSession = async (prompt) => {
+    try {
+      await this.client.start({
+        phoneNumber: async () => await prompt('phone'),
+        phoneCode: async () => await prompt('code'),
+        password: async () => await prompt('password'),
+        onError: (err) => alert(`ERROR WHILE LOGIN: ${err}`),
+      });
 
-    console.log('client.session', client.session.save())
+      alert(`client session: ${this.client.session.save()}`)
 
-    return client.session.save()
+      return this.client.session.save()
+    } catch (error) {
+      alert(`error from get string session ${error}`)
+    }
   };
 
   sendMessageToTeletypeBot = async (title, notice) => {
-    const client = new TelegramClient(this.stringSession, this.apiId, this.apiHash, {
-      connectionRetries: 5,
-    });
+    await this.client.connect();
 
-    try {
-      await client.connect();
+    await this.client.sendMessage("TeletypeAppBot", { message: "/new_post" });
 
-      await client.sendMessage("TeletypeAppBot", { message: "/new_post" });
+    await this.client.sendMessage("TeletypeAppBot", { message: title });
 
-      await client.sendMessage("TeletypeAppBot", { message: title });
-
-      for (const chunk of notice) {
-        if (chunk && typeof chunk === 'object' && chunk.type === 'media') {
-          await client.sendMessage("TeletypeAppBot", { file: chunk.path });
-        } else if (chunk && chunk.length) {
-          await client.sendMessage("TeletypeAppBot", { message: chunk, parseMode: 'html' });
-        }
+    for (const chunk of notice) {
+      if (chunk && typeof chunk === 'object' && chunk.type === 'media') {
+        await this.client.sendMessage("TeletypeAppBot", { file: chunk.path });
+      } else if (chunk && chunk.length) {
+        await this.client.sendMessage("TeletypeAppBot", { message: chunk, parseMode: 'html' });
       }
-
-      await client.sendMessage("TeletypeAppBot", { message: "/finish_post" });
-    } catch (exception) {
-      alert(exception)
     }
+
+    await this.client.sendMessage("TeletypeAppBot", { message: "/finish_post" });
   }
 };
 
 export default TelegramPluginClient;
+

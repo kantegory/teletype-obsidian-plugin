@@ -98,10 +98,58 @@ export default class TeletypeObsidianPlugin extends Plugin {
 
 		// This adds a simple command that can be triggered anywhere
 		this.addCommand({
-			id: 'open-sample-modal-simple',
-			name: 'Open sample modal (simple)',
-			callback: () => {
-				new SampleModal(this.app).open();
+			id: 'teletype-obsidian-generate-session',
+			name: 'Generate telegram string session',
+			callback: async () => {
+				try {
+					if (this.settings.telegramStringSession) {
+						alert('Session is already setted, remove it and repeat command')
+					}
+
+					const tgClient = new TelegramPluginClient(
+						Number(this.settings.telegramApiId),
+						this.settings.telegramApiHash,
+						this.settings.telegramStringSession
+					);
+
+					alert('start chaining...');
+
+					const prompt = (type: 'phone' | 'code' | 'password') => {
+						alert('prompting...');
+
+						const modal = new TelegramAuthModal(this.app, type);
+
+						modal.open();
+
+						return new Promise(
+							(resolve, reject) => {
+								try {
+									let value = '';
+
+									// @ts-ignore
+									modal.containerEl.querySelector('form').addEventListener('submit', (event) => {
+										event.preventDefault();
+										alert('hheheheh');
+										// @ts-ignore
+										value = event.target.querySelector('input').value;
+
+										modal.close();
+
+										resolve(value);
+									});
+								} catch (error) {
+									reject(error)
+								}
+							}
+						);
+					}
+
+					await tgClient.getStringSession(prompt);
+
+					alert('finishing....');
+				} catch (error) {
+					alert(`error while try to generate session: ${error}`)
+				}
 			}
 		});
 
@@ -111,8 +159,12 @@ export default class TeletypeObsidianPlugin extends Plugin {
 			name: 'Publish note into teletype',
 			editorCallback: async (editor: Editor, view: MarkdownView) => {
 				try {
+					if (!this.settings.telegramStringSession) {
+						alert("Can't publish anything without session param")
+					}
+
 					const tgClient = new TelegramPluginClient(
-						this.settings.telegramApiId,
+						Number(this.settings.telegramApiId),
 						this.settings.telegramApiHash,
 						this.settings.telegramStringSession
 					)
@@ -138,26 +190,6 @@ export default class TeletypeObsidianPlugin extends Plugin {
 			}
 		});
 
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-sample-modal-complex',
-			name: 'Open sample modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
-
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
-				}
-			}
-		});
-
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new SampleSettingTab(this.app, this));
 
@@ -166,9 +198,6 @@ export default class TeletypeObsidianPlugin extends Plugin {
 		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
 			console.log('click', evt);
 		});
-
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
 	}
 
 	onunload() {
@@ -184,27 +213,44 @@ export default class TeletypeObsidianPlugin extends Plugin {
 	}
 }
 
-class SampleModal extends Modal {
-	constructor(app: App) {
+class TelegramAuthModal extends Modal {
+	type: 'phone' | 'code' | 'password';
+
+	constructor(app: App, type: 'phone' | 'code' | 'password') {
 		super(app);
+
+		this.type = type
 	}
 
 	onOpen() {
 		const {contentEl} = this;
 
-		contentEl.innerHTML = `
-			<form>
-				<label>
-					<p>Input your phone number:</p>
+		const LABELS_MATCHING = {
+			'phone': 'Input your phone number:',
+			'code': 'Input your Telegram verification code:',
+			'password': 'Input your password:',
+		}
 
-					<input type="text" />
+		contentEl.innerHTML = `
+			<form data-id="telegram-session-form">
+				<label>
+					<p>${LABELS_MATCHING[this.type]}</p>
+
+					<input name="${this.type}" type="${this.type === 'password' ? 'password' : 'text'}" />
 				</label>
+
+				<br>
+				<br>
+
+				<div>
+					<button type="submit">${this.type === 'password' ? 'Save session params' : 'Next'}</button>
+				</div>
 			</form>
 		`
 	}
 
 	onClose() {
-		const {contentEl} = this;
+		const { contentEl } = this;
 		contentEl.empty();
 	}
 }
