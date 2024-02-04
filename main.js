@@ -47102,10 +47102,9 @@ var TelegramPluginClient = class {
           password: async () => await prompt("password"),
           onError: (err) => alert(`ERROR WHILE LOGIN: ${err}`)
         });
-        alert(`client session: ${this.client.session.save()}`);
         return this.client.session.save();
       } catch (error) {
-        alert(`error from get string session ${error}`);
+        console.error(`error from get string session ${error}`);
       }
     });
     __publicField(this, "sendMessageToTeletypeBot", async (title, notice) => {
@@ -47125,7 +47124,8 @@ var TelegramPluginClient = class {
     this.apiHash = apiHash;
     this.stringSession = new import_sessions.StringSession(stringSession);
     this.client = new import_telegram.TelegramClient(this.stringSession, this.apiId, this.apiHash, {
-      connectionRetries: 5
+      connectionRetries: 5,
+      useWSS: true
     });
   }
 };
@@ -47207,9 +47207,7 @@ var TeletypeObsidianPlugin = class extends import_obsidian.Plugin {
             this.settings.telegramApiHash,
             this.settings.telegramStringSession
           );
-          alert("start chaining...");
           const prompt = (type) => {
-            alert("prompting...");
             const modal = new TelegramAuthModal(this.app, type);
             modal.open();
             return new Promise(
@@ -47218,7 +47216,6 @@ var TeletypeObsidianPlugin = class extends import_obsidian.Plugin {
                   let value = "";
                   modal.containerEl.querySelector("form").addEventListener("submit", (event) => {
                     event.preventDefault();
-                    alert("hheheheh");
                     value = event.target.querySelector("input").value;
                     modal.close();
                     resolve(value);
@@ -47229,8 +47226,9 @@ var TeletypeObsidianPlugin = class extends import_obsidian.Plugin {
               }
             );
           };
-          await tgClient.getStringSession(prompt);
-          alert("finishing....");
+          const stringSession = await tgClient.getStringSession(prompt);
+          this.settings.telegramStringSession = stringSession;
+          this.saveSettings();
         } catch (error) {
           alert(`error while try to generate session: ${error}`);
         }

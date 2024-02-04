@@ -96,10 +96,11 @@ export default class TeletypeObsidianPlugin extends Plugin {
 		const statusBarItemEl = this.addStatusBarItem();
 		statusBarItemEl.setText('Status Bar Text');
 
-		// This adds a simple command that can be triggered anywhere
+		// команда для генерации и сохранения пользовательской сессии
 		this.addCommand({
 			id: 'teletype-obsidian-generate-session',
 			name: 'Generate telegram string session',
+
 			callback: async () => {
 				try {
 					if (this.settings.telegramStringSession) {
@@ -112,11 +113,7 @@ export default class TeletypeObsidianPlugin extends Plugin {
 						this.settings.telegramStringSession
 					);
 
-					alert('start chaining...');
-
 					const prompt = (type: 'phone' | 'code' | 'password') => {
-						alert('prompting...');
-
 						const modal = new TelegramAuthModal(this.app, type);
 
 						modal.open();
@@ -129,7 +126,6 @@ export default class TeletypeObsidianPlugin extends Plugin {
 									// @ts-ignore
 									modal.containerEl.querySelector('form').addEventListener('submit', (event) => {
 										event.preventDefault();
-										alert('hheheheh');
 										// @ts-ignore
 										value = event.target.querySelector('input').value;
 
@@ -144,16 +140,19 @@ export default class TeletypeObsidianPlugin extends Plugin {
 						);
 					}
 
-					await tgClient.getStringSession(prompt);
+					// @ts-ignore
+					const stringSession: string = await tgClient.getStringSession(prompt);
 
-					alert('finishing....');
+					// обновим настройки
+					this.settings.telegramStringSession = stringSession;
+					this.saveSettings();
 				} catch (error) {
 					alert(`error while try to generate session: ${error}`)
 				}
 			}
 		});
 
-		// This adds an editor command that can perform some operation on the current editor instance
+		// команда для публикации текущей заметки
 		this.addCommand({
 			id: 'teletype-obsidian-publish-command',
 			name: 'Publish note into teletype',

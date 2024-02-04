@@ -11,6 +11,7 @@ class TelegramPluginClient {
 
     this.client = new TelegramClient(this.stringSession, this.apiId, this.apiHash, {
       connectionRetries: 5,
+      useWSS: true,
     });
   }
 
@@ -23,11 +24,9 @@ class TelegramPluginClient {
         onError: (err) => alert(`ERROR WHILE LOGIN: ${err}`),
       });
 
-      alert(`client session: ${this.client.session.save()}`)
-
       return this.client.session.save()
     } catch (error) {
-      alert(`error from get string session ${error}`)
+      console.error(`error from get string session ${error}`)
     }
   };
 
