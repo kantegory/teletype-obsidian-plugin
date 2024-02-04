@@ -112,15 +112,16 @@ export default class TeletypeObsidianPlugin extends Plugin {
 									let value = '';
 
 									// @ts-ignore
-									modal.containerEl.querySelector('form').addEventListener('submit', (event) => {
-										event.preventDefault();
-										// @ts-ignore
-										value = event.target.querySelector('input').value;
+									modal.containerEl.querySelector('form')
+										.addEventListener('submit', (event) => {
+											event.preventDefault();
+											// @ts-ignore
+											value = event.target.querySelector('input').value;
 
-										modal.close();
+											modal.close();
 
-										resolve(value);
-									});
+											resolve(value);
+										});
 								} catch (error) {
 									reject(error)
 								}
